@@ -1,58 +1,33 @@
-from datetime import date
-from typing import List, Optional
+from fastapi import FastAPI
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+from redis import asyncio as aioredis
+from sqladmin import Admin
 
-from fastapi import FastAPI, Query, Depends
-
-from pydantic import BaseModel
-import uvicorn
+from app.admin.auth import authentication_backend
+from app.admin.views import BookingsAdmin, UsersAdmin
+from app.bookings.router import router as bookings_router
+from app.config import settings
+from app.database import engine
+from app.images.router import router as images_router
+from app.users.router import router as users_router
 
 app = FastAPI()
+app.include_router(users_router)
+app.include_router(bookings_router)
+app.include_router(images_router)
 
 
-class HotelSearchArgs:
-    def __init__(
-        self,
-        location: str,
-        date_from: date,
-        date_to: date,
-        has_spa: Optional[bool] = None,
-        stars: Optional[int] = Query(None, ge=1, le=5),
-    ):
-        self.location = location
-        self.date_from = date_from
-        self.date_to = date_to
-        self.has_spa = has_spa
-        self.stars = stars
+@app.on_event("startup")
+def startup():
+    redis = aioredis.from_url(
+        f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}",
+        encoding="utf-8",
+        decode_responses=True,
+    )
+    FastAPICache.init(RedisBackend(redis), prefix="cache")
 
 
-class SHotel(BaseModel):
-    address: str
-    name: str
-    stars: int
-
-
-@app.get("/hotels")
-def get_hotels(search_args: HotelSearchArgs = Depends()) -> List[SHotel]:
-    hotels = [
-        {
-            "address": "ул. Гагарина, 1, Алтай",
-            "name": "Super Hotel",
-            "stars": 5,
-        }
-    ]
-    return hotels
-
-
-class SBooking(BaseModel):
-    room_id: int
-    date_from: date
-    date_to: date
-
-
-@app.post("/bookings")
-def add_booking():
-    pass
-
-
-if __name__ == "__main__":
-    uvicorn.run(app="main:app", reload=True)
+admin = Admin(app, engine, authentication_backend=authentication_backend)
+admin.add_view(UsersAdmin)
+admin.add_view(BookingsAdmin)
