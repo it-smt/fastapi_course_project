@@ -1,15 +1,14 @@
 """create table hotels
 
 Revision ID: 809375b8512e
-Revises: 
+Revises:
 Create Date: 2025-01-06 03:27:35.980414
 
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '809375b8512e'
